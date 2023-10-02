@@ -36,9 +36,9 @@ fn setup(
 ) {
     commands.spawn(Camera2dBundle::default());
 
-    commands.spawn((
+    let p = commands.spawn((
         MaterialMesh2dBundle {
-            mesh: meshes.add(shape::Quad::new(Vec2::splat(5.0)).into()).into(),
+            mesh: meshes.add(shape::Quad::new(Vec2::splat(6.0)).into()).into(),
             material: materials.add(Color::WHITE.into()),
             transform: Transform::from_translation(Vec3::ZERO),
             ..default()
@@ -46,7 +46,16 @@ fn setup(
         Player,
         Move { speed: 500.0 },
         Rotate { speed: f32::to_radians(360.0)},
-    ));
+    )).id();
+    let p_child = commands.spawn((
+        MaterialMesh2dBundle {
+            mesh: meshes.add(shape::Quad::new(Vec2::new(2.0, 3.0)).into()).into(),
+            material: materials.add(Color::GRAY.into()),
+            transform: Transform::from_translation(Vec3::new(0.0, 1.5, 1.0)),
+            ..default()
+        },
+    )).id();
+    commands.entity(p).add_child(p_child);
 }
 
 /// Demonstrates applying rotation and movement based on keyboard input.
