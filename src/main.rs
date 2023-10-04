@@ -19,7 +19,7 @@ fn main() {
             DiagnosticsPlugin,
             PrefabsPlugin,
         ))
-        .add_systems(Startup, (setup))
+        .add_systems(Startup, setup)
         .add_systems(
             Update,
             (

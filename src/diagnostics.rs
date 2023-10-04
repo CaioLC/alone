@@ -55,7 +55,7 @@ pub struct DiagnosticsPlugin;
 impl Plugin for DiagnosticsPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(FrameTimeDiagnosticsPlugin)
-            .add_systems(Startup, (infotext_system))
-            .add_systems(Update, (change_text_system));
+            .add_systems(Startup, infotext_system)
+            .add_systems(Update, change_text_system);
     }
 }
