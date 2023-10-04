@@ -1,9 +1,12 @@
 use bevy::{asset::ChangeWatcher, prelude::*, sprite::MaterialMesh2dBundle};
 use std::time::Duration;
+use bevy_magic_light_2d::prelude::*;
 
 use alone::{
     diagnostics::DiagnosticsPlugin,
-    prefabs::{BulletPrefab, PrefabsPlugin},
+    materials::{MyMaterialsPlugin, BulletMaterial},
+    meshes::{MyMeshesPlugin, BulletMesh},
+    prefabs,
 };
 
 const BOUNDS: Vec2 = Vec2::new(1200.0, 640.0);
@@ -11,13 +14,27 @@ const BOUNDS: Vec2 = Vec2::new(1200.0, 640.0);
 fn main() {
     App::new()
         .insert_resource(ClearColor(Color::rgb(0.1, 0.1, 0.1)))
+        .insert_resource(BevyMagicLight2DSettings {
+            light_pass_params: LightPassParams {
+                reservoir_size: 16,
+                smooth_kernel_size: (2, 1),
+                direct_light_contrib: 0.2,
+                indirect_light_contrib: 0.8,
+                ..default()
+            },
+        })
         .add_plugins((
+            // Bevy
             DefaultPlugins.set(AssetPlugin {
                 watch_for_changes: ChangeWatcher::with_delay(Duration::from_millis(200)),
                 ..Default::default()
             }),
+            // 3rd party
+            // BevyMagicLight2DPlugin,
+            // Mine
             DiagnosticsPlugin,
-            PrefabsPlugin,
+            MyMaterialsPlugin,
+            MyMeshesPlugin
         ))
         .add_systems(Startup, setup)
         .add_systems(
@@ -93,7 +110,8 @@ fn fire_system(
     mut commands: Commands,
     player: Query<&Transform, With<Player>>,
     keyboard_input: Res<Input<KeyCode>>,
-    bullet_prefab: Res<BulletPrefab>,
+    bullet_mat: Res<BulletMaterial>,
+    bullet_mesh: Res<BulletMesh>,
 ) {
     if keyboard_input.just_pressed(KeyCode::Space) {
         let p = player.get_single().unwrap();
@@ -101,12 +119,7 @@ fn fire_system(
         b_transf.translation += b_transf.up() * 2.0;
 
         commands.spawn((
-            MaterialMesh2dBundle {
-                mesh: bullet_prefab.mesh_handle.clone().into(),
-                material: bullet_prefab.material_handle.clone(),
-                transform: b_transf,
-                ..default()
-            },
+            prefabs::bullet_bundle(bullet_mesh, bullet_mat, b_transf),
             Bullet,
             Move { speed: 1000.0 },
             Decay {

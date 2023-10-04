@@ -7,3 +7,4 @@ edition = "2021"
 
 [dependencies]
 bevy = { version = "0.11" }
+bevy_magic_light_2d = { git = "https://github.com/zaycev/bevy-magic-light-2d", branch = "main"}
