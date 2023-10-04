@@ -1,30 +1,29 @@
+use bevy::{asset::ChangeWatcher, prelude::*, sprite::MaterialMesh2dBundle};
 use std::time::Duration;
 
-use bevy::{
-    asset::ChangeWatcher,
-    diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
-    prelude::*,
-    sprite::MaterialMesh2dBundle,
-    transform::commands,
+use alone::{
+    diagnostics::DiagnosticsPlugin,
+    prefabs::{BulletPrefab, PrefabsPlugin},
 };
 
 const BOUNDS: Vec2 = Vec2::new(1200.0, 640.0);
 
 fn main() {
     App::new()
+        .insert_resource(ClearColor(Color::rgb(0.1, 0.1, 0.1)))
         .add_plugins((
             DefaultPlugins.set(AssetPlugin {
                 watch_for_changes: ChangeWatcher::with_delay(Duration::from_millis(200)),
                 ..Default::default()
             }),
-            FrameTimeDiagnosticsPlugin,
+            DiagnosticsPlugin,
+            PrefabsPlugin,
         ))
-        .add_systems(Startup, (setup, infotext_system))
+        .add_systems(Startup, (setup))
         .add_systems(
             Update,
             (
                 player_movement_system,
-                change_text_system,
                 fire_system,
                 decay_system,
                 move_system,
@@ -52,12 +51,6 @@ pub struct Decay {
     elapsed_time: f32,
 }
 
-#[derive(Resource, Default)]
-pub struct BulletPrefab {
-    mesh_handle: Handle<Mesh>,
-    material_handle: Handle<ColorMaterial>,
-}
-
 #[derive(Component)]
 pub struct Bullet;
 
@@ -67,14 +60,6 @@ fn setup(
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     commands.spawn(Camera2dBundle::default());
-
-    let bullet: Mesh = shape::Quad::new(Vec2::new(1.0, 4.0)).into();
-    let bullet_mesh = meshes.add(bullet);
-    let bullet_material = materials.add(Color::RED.into());
-    commands.insert_resource(BulletPrefab {
-        mesh_handle: bullet_mesh,
-        material_handle: bullet_material,
-    });
 
     let p = commands
         .spawn((
@@ -104,53 +89,6 @@ fn setup(
     commands.entity(p).add_child(p_child);
 }
 
-#[derive(Component)]
-struct TextChanges;
-fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let font = asset_server.load("fonts/FiraSans-Bold.ttf");
-    commands.spawn((
-        TextBundle::from_sections([TextSection::new(
-            "",
-            TextStyle {
-                font: font.clone(),
-                font_size: 20.0,
-                color: Color::WHITE,
-            },
-        )])
-        .with_style(Style {
-            position_type: PositionType::Absolute,
-            top: Val::Px(5.0),
-            left: Val::Px(15.0),
-            ..default()
-        }),
-        TextChanges,
-    ));
-}
-
-fn change_text_system(
-    time: Res<Time>,
-    diagnostics: Res<DiagnosticsStore>,
-    mut query: Query<&mut Text, With<TextChanges>>,
-) {
-    for mut text in &mut query {
-        let mut fps = 0.0;
-        if let Some(fps_diagnostic) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
-            if let Some(fps_smoothed) = fps_diagnostic.smoothed() {
-                fps = fps_smoothed;
-            }
-        }
-
-        let mut frame_time = time.delta_seconds_f64();
-        if let Some(frame_time_diagnostic) = diagnostics.get(FrameTimeDiagnosticsPlugin::FRAME_TIME)
-        {
-            if let Some(frame_time_smoothed) = frame_time_diagnostic.smoothed() {
-                frame_time = frame_time_smoothed;
-            }
-        }
-        text.sections[0].value = format!("FPS: {fps:.1} | {frame_time:.3} ms/frame",);
-    }
-}
-
 fn fire_system(
     mut commands: Commands,
     player: Query<&Transform, With<Player>>,
@@ -172,7 +110,7 @@ fn fire_system(
             Bullet,
             Move { speed: 1000.0 },
             Decay {
-                max_seconds: 1.0,
+                max_seconds: 0.5,
                 elapsed_time: 0.0,
             },
         ));
