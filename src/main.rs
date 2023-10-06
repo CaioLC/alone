@@ -1,6 +1,6 @@
 use bevy::{asset::ChangeWatcher, prelude::*, sprite::MaterialMesh2dBundle};
 use std::time::Duration;
-use bevy_magic_light_2d::prelude::*;
+// use bevy_magic_light_2d::prelude::*;
 
 use alone::{
     diagnostics::DiagnosticsPlugin,
@@ -11,18 +11,22 @@ use alone::{
 
 const BOUNDS: Vec2 = Vec2::new(1200.0, 640.0);
 
+#[derive(Resource, Default)]
+struct MouseWorldPos(pub Vec2);
+
 fn main() {
     App::new()
         .insert_resource(ClearColor(Color::rgb(0.1, 0.1, 0.1)))
-        .insert_resource(BevyMagicLight2DSettings {
-            light_pass_params: LightPassParams {
-                reservoir_size: 16,
-                smooth_kernel_size: (2, 1),
-                direct_light_contrib: 0.2,
-                indirect_light_contrib: 0.8,
-                ..default()
-            },
-        })
+        .insert_resource(MouseWorldPos::default())
+        // .insert_resource(BevyMagicLight2DSettings {
+        //     light_pass_params: LightPassParams {
+        //         reservoir_size: 16,
+        //         smooth_kernel_size: (2, 1),
+        //         direct_light_contrib: 0.2,
+        //         indirect_light_contrib: 0.8,
+        //         ..default()
+        //     },
+        // })
         .add_plugins((
             // Bevy
             DefaultPlugins.set(AssetPlugin {
@@ -41,6 +45,8 @@ fn main() {
             Update,
             (
                 player_movement_system,
+                // player_aim_system,
+                cursor_to_world,
                 fire_system,
                 decay_system,
                 move_system,
@@ -148,43 +154,75 @@ fn decay_system(mut commands: Commands, mut query: Query<(Entity, &mut Decay)>, 
 
 fn player_movement_system(
     keyboard_input: Res<Input<KeyCode>>,
-    mut query: Query<(&Player, &mut Transform, &Move, &Rotate)>,
+    mut query: Query<(&Player, &mut Transform, &Move)>,
     time: Res<Time>,
 ) {
-    let (_, mut transform, mv, rot) = query.single_mut();
+    let (_, mut transform, mv) = query.single_mut();
 
-    let mut rotation_factor = 0.0;
-    let mut movement_factor = 0.0;
+    let mut movement_vector = Vec2::ZERO;
 
-    if keyboard_input.pressed(KeyCode::Left) {
-        rotation_factor += 1.0;
+    if keyboard_input.pressed(KeyCode::A) {
+        movement_vector += Vec2::NEG_X;
     }
 
-    if keyboard_input.pressed(KeyCode::Right) {
-        rotation_factor -= 1.0;
+    if keyboard_input.pressed(KeyCode::D) {
+        movement_vector += Vec2::X;
     }
 
-    if keyboard_input.pressed(KeyCode::Up) {
-        movement_factor += 1.0;
+    if keyboard_input.pressed(KeyCode::S) {
+        movement_vector += Vec2::NEG_Y;
     }
 
-    if keyboard_input.pressed(KeyCode::Down) {
-        movement_factor -= 0.5;
+    if keyboard_input.pressed(KeyCode::W) {
+        movement_vector += Vec2::Y;
     }
 
     // update the ship rotation around the Z axis (perpendicular to the 2D plane of the screen)
-    transform.rotate_z(rotation_factor * rot.speed * time.delta_seconds());
+    // transform.rotate_z(rotation_factor * rot.speed * time.delta_seconds());
 
-    // get the ship's forward vector by applying the current rotation to the ships initial facing vector
-    let movement_direction = transform.rotation * Vec3::Y;
     // get the distance the ship will move based on direction, the ship's movement speed and delta time
-    let movement_distance = movement_factor * mv.speed * time.delta_seconds();
+    let mov = movement_vector.normalize_or_zero() * mv.speed * time.delta_seconds();
     // create the change in translation using the new movement direction and distance
-    let translation_delta = movement_direction * movement_distance;
+    // let translation_delta = movement_direction * movement_distance;
     // update the ship translation with our new translation delta
-    transform.translation += translation_delta;
+    transform.translation += Vec3::new(mov.x, mov.y, 0.0);
 
     // bound the ship within the invisible level bounds
     let extents = Vec3::from((BOUNDS / 2.0, 0.0));
     transform.translation = transform.translation.min(extents).max(-extents);
+}
+
+fn player_aim_system(
+    ms_pos: Res<Input<KeyCode>>,
+    q_windows: Query<&Window>,
+    mut query: Query<(&Player, &mut Transform, &Move)>,
+    time: Res<Time>,
+) {
+    if let Some(position) = q_windows.single().cursor_position() {
+        println!("Cursor is inside the primary window, at {:?}", position);
+    } else {
+        println!("Cursor is not in the game window.");
+    }
+}
+
+fn cursor_to_world(
+    q_windows: Query<&Window>,
+    query: Query<(&Camera, &GlobalTransform)>,
+    mut ms_pos: EventReader<CursorMoved>,
+    mut ms_world_pos: ResMut<MouseWorldPos>,
+) {
+    let window = q_windows.single();
+    if let Some(cursor) = window.cursor_position() {
+        if !ms_pos.is_empty() {
+            let (camera, global_transf) = query.single();
+            let world_pos = camera.viewport_to_world_2d(global_transf, cursor);
+            if let Some(pos) = world_pos {
+                ms_world_pos.0 = pos;
+                dbg!(&world_pos);
+            }
+            
+            // clear all events so that function only runs once per frame
+            // ms_pos.clear();
+        }
+    }
 }
