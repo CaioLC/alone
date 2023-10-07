@@ -6,7 +6,7 @@ type MeshHandle = Handle<Mesh>;
 pub struct BulletMesh(pub MeshHandle);
 
 #[derive(Resource)]
-pub struct FireMesh(pub MeshHandle);
+pub struct EnemyMesh(pub MeshHandle);
 
 #[derive(Resource)]
 pub struct PlayerMesh(pub MeshHandle);
@@ -18,10 +18,13 @@ impl Plugin for MyMeshesPlugin {
     }
 }
 
-fn store_meshes(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-) {
+fn store_meshes(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
     let bullet_handle = meshes.add(shape::Quad::new(Vec2::new(2.0, 4.0)).into());
     commands.insert_resource(BulletMesh(bullet_handle));
+
+    let enemy_handle = meshes.add(shape::Quad::new(Vec2::splat(6.0)).into());
+    commands.insert_resource(EnemyMesh(enemy_handle));
+
+    let player_handle = meshes.add(shape::Quad::new(Vec2::splat(6.0)).into());
+    commands.insert_resource(PlayerMesh(player_handle));
 }

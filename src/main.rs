@@ -1,34 +1,31 @@
-use bevy::{asset::ChangeWatcher, prelude::*, sprite::MaterialMesh2dBundle, math::Vec3Swizzles};
+use alone::materials::EnemyMaterial;
+use alone::meshes::EnemyMesh;
 use bevy::input::common_conditions::input_toggle_active;
-use std::time::Duration;
+use bevy::{asset::ChangeWatcher, math::Vec3Swizzles, prelude::*, sprite::MaterialMesh2dBundle};
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
+use rand::Rng;
+use std::time::Duration;
 // use bevy_magic_light_2d::prelude::*;
 
 use alone::{
+    components::*,
     diagnostics::DiagnosticsPlugin,
-    materials::{MyMaterialsPlugin, BulletMaterial},
-    meshes::{MyMeshesPlugin, BulletMesh},
+    materials::{BulletMaterial, MyMaterialsPlugin},
+    meshes::{BulletMesh, MyMeshesPlugin},
     prefabs,
+    resources::*,
+    systems::movement,
 };
-
-const BOUNDS: Vec2 = Vec2::new(1200.0, 640.0);
-
-#[derive(Resource, Default)]
-struct MouseWorldPos(pub Vec2);
 
 fn main() {
     App::new()
         .insert_resource(ClearColor(Color::rgb(0.1, 0.1, 0.1)))
         .insert_resource(MouseWorldPos::default())
-        // .insert_resource(BevyMagicLight2DSettings {
-        //     light_pass_params: LightPassParams {
-        //         reservoir_size: 16,
-        //         smooth_kernel_size: (2, 1),
-        //         direct_light_contrib: 0.2,
-        //         indirect_light_contrib: 0.8,
-        //         ..default()
-        //     },
-        // })
+        .insert_resource(RoundParams {
+            length: 10.0,
+            countdown: 10.0,
+            enemies: 10,
+        })
         .add_plugins((
             // Bevy
             DefaultPlugins.set(AssetPlugin {
@@ -37,56 +34,42 @@ fn main() {
             }),
             // 3rd party
             WorldInspectorPlugin::default().run_if(input_toggle_active(true, KeyCode::Escape)),
-            // BevyMagicLight2DPlugin,
             // Mine
             DiagnosticsPlugin,
             MyMaterialsPlugin,
-            MyMeshesPlugin
+            MyMeshesPlugin,
         ))
         .add_systems(Startup, setup)
         .add_systems(
             Update,
             (
-                player_movement_system,
-                player_aim_system,
+                movement::player_movement_system,
+                movement::player_aim_system,
+                movement::move_system,
+                movement::rotate_to_player_system,
                 cursor_to_world,
                 fire_system,
                 decay_system,
-                move_system,
+                enemy_system,
             ),
         )
         .run()
 }
 
-#[derive(Component)]
-pub struct Player;
-
-#[derive(Component)]
-pub struct Move {
-    speed: f32,
-}
-
-#[derive(Component)]
-pub struct Rotate {
-    speed: f32,
-}
-
-#[derive(Component)]
-pub struct Decay {
-    max_seconds: f32,
-    elapsed_time: f32,
-}
-
-#[derive(Component)]
-pub struct Bullet;
-
 fn setup(
+    mut commands: Commands,
+    meshes: ResMut<Assets<Mesh>>,
+    materials: ResMut<Assets<ColorMaterial>>,
+) {
+    commands.spawn(Camera2dBundle::default());
+    spawn_player(commands, meshes, materials);
+}
+
+fn spawn_player(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    commands.spawn(Camera2dBundle::default());
-
     let p = commands
         .spawn((
             MaterialMesh2dBundle {
@@ -100,6 +83,7 @@ fn setup(
             Rotate {
                 speed: f32::to_radians(360.0),
             },
+            Sensor { radius: 5.0 }
         ))
         .id();
     let p_child = commands
@@ -128,21 +112,15 @@ fn fire_system(
         b_transf.translation += b_transf.up() * 2.0;
 
         commands.spawn((
-            prefabs::bullet_bundle(bullet_mesh, bullet_mat, b_transf),
+            prefabs::bullet_bundle(&bullet_mesh, &bullet_mat, b_transf),
             Bullet,
             Move { speed: 1000.0 },
             Decay {
                 max_seconds: 0.5,
                 elapsed_time: 0.0,
             },
+            Sensor { radius: 3.0 }
         ));
-    }
-}
-
-fn move_system(mut query: Query<(&Move, &mut Transform), Without<Player>>, time: Res<Time>) {
-    for (m, mut t) in &mut query {
-        let mv_vector = t.up() * m.speed * time.delta_seconds();
-        t.translation += mv_vector;
     }
 }
 
@@ -154,62 +132,6 @@ fn decay_system(mut commands: Commands, mut query: Query<(Entity, &mut Decay)>, 
         }
     }
 }
-
-fn player_movement_system(
-    keyboard_input: Res<Input<KeyCode>>,
-    mut query: Query<(&Player, &mut Transform, &Move)>,
-    time: Res<Time>,
-) {
-    let (_, mut transform, mv) = query.single_mut();
-
-    let mut movement_vector = Vec2::ZERO;
-
-    if keyboard_input.pressed(KeyCode::A) {
-        movement_vector += Vec2::NEG_X;
-    }
-
-    if keyboard_input.pressed(KeyCode::D) {
-        movement_vector += Vec2::X;
-    }
-
-    if keyboard_input.pressed(KeyCode::S) {
-        movement_vector += Vec2::NEG_Y;
-    }
-
-    if keyboard_input.pressed(KeyCode::W) {
-        movement_vector += Vec2::Y;
-    }
-
-    // update the ship rotation around the Z axis (perpendicular to the 2D plane of the screen)
-    // transform.rotate_z(rotation_factor * rot.speed * time.delta_seconds());
-
-    // get the distance the ship will move based on direction, the ship's movement speed and delta time
-    let mov = movement_vector.normalize_or_zero() * mv.speed * time.delta_seconds();
-    // create the change in translation using the new movement direction and distance
-    // let translation_delta = movement_direction * movement_distance;
-    // update the ship translation with our new translation delta
-    transform.translation += Vec3::new(mov.x, mov.y, 0.0);
-
-    // bound the ship within the invisible level bounds
-    let extents = Vec3::from((BOUNDS / 2.0, 0.0));
-    transform.translation = transform.translation.min(extents).max(-extents);
-}
-
-
-fn player_aim_system(
-    ms_pos: Res<MouseWorldPos>,
-    q_windows: Query<&Window>,
-    mut query: Query<&mut Transform, With<Player>>,
-) {
-    if let Some(_) = q_windows.single().cursor_position() {
-        let mut transf = query.get_single_mut().unwrap();
-        let displacement = ms_pos.0 - transf.translation.truncate();
-        if let Some(dir) = displacement.try_normalize() {
-            transf.rotation = Quat::from_rotation_arc_2d(Vec2::Y, dir);
-        }
-    }
-}
-
 
 fn cursor_to_world(
     q_windows: Query<&Window>,
@@ -228,4 +150,46 @@ fn cursor_to_world(
             }
         }
     }
+}
+
+#[derive(Resource)]
+struct RoundParams {
+    length: f32,
+    countdown: f32,
+    enemies: u32,
+}
+
+fn enemy_system(
+    mut commands: Commands,
+    mut round: ResMut<RoundParams>,
+    time: Res<Time>,
+    enemy_mesh: Res<EnemyMesh>,
+    enemy_mat: Res<EnemyMaterial>,
+) {
+    if round.length == round.countdown {
+        for _ in 0..round.enemies {
+            let random_pos = random_2d((-600.0, 600.0), (-300.0, 300.0));
+            let t = Transform::from_xyz(random_pos.x, random_pos.y, 0.0);
+            commands.spawn((
+                prefabs::enemy_bundle(&enemy_mesh, &enemy_mat, t),
+                Enemy,
+                Move { speed: 50.0 },
+                Rotate { speed: 180.0 },
+                Sensor { radius: 7.0 }
+            ));
+        }
+    }
+    round.countdown -= time.delta_seconds();
+    if round.countdown <= 0.0 {
+        dbg!("NEW ROUND!");
+        round.countdown = round.length;
+    }
+}
+
+type MinMax = (f32, f32);
+fn random_2d(x_range: MinMax, y_range: MinMax) -> Vec2 {
+    let mut rng = rand::thread_rng();
+    let x: f32 = rng.gen_range(x_range.0..x_range.1);
+    let y: f32 = rng.gen_range(y_range.0..y_range.1);
+    Vec2::new(x, y)
 }

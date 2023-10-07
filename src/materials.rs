@@ -6,7 +6,10 @@ type MatHandle = Handle<ColorMaterial>;
 pub struct BulletMaterial(pub MatHandle);
 
 #[derive(Resource)]
-pub struct FireMaterial(pub MatHandle);
+pub struct PlayerMaterial(pub MatHandle);
+
+#[derive(Resource)]
+pub struct EnemyMaterial(pub MatHandle);
 
 pub struct MyMaterialsPlugin;
 impl Plugin for MyMaterialsPlugin {
@@ -15,13 +18,13 @@ impl Plugin for MyMaterialsPlugin {
     }
 }
 
-fn store_materials(
-    mut commands: Commands,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-) {
-    let bullet_handle = materials.add(Color::RED.into());
+fn store_materials(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
+    let bullet_handle = materials.add(Color::ORANGE.into());
     commands.insert_resource(BulletMaterial(bullet_handle));
 
-    let fire_handle = materials.add(Color::ORANGE_RED.into());
-    commands.insert_resource(FireMaterial(fire_handle));
+    let enemy_handle = materials.add(Color::RED.into());
+    commands.insert_resource(EnemyMaterial(enemy_handle));
+
+    let player_handle = materials.add(Color::WHITE.into());
+    commands.insert_resource(EnemyMaterial(player_handle));
 }
