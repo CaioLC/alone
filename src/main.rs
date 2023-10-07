@@ -1,5 +1,7 @@
-use bevy::{asset::ChangeWatcher, prelude::*, sprite::MaterialMesh2dBundle};
+use bevy::{asset::ChangeWatcher, prelude::*, sprite::MaterialMesh2dBundle, math::Vec3Swizzles};
+use bevy::input::common_conditions::input_toggle_active;
 use std::time::Duration;
+use bevy_inspector_egui::quick::WorldInspectorPlugin;
 // use bevy_magic_light_2d::prelude::*;
 
 use alone::{
@@ -34,6 +36,7 @@ fn main() {
                 ..Default::default()
             }),
             // 3rd party
+            WorldInspectorPlugin::default().run_if(input_toggle_active(true, KeyCode::Escape)),
             // BevyMagicLight2DPlugin,
             // Mine
             DiagnosticsPlugin,
@@ -45,7 +48,7 @@ fn main() {
             Update,
             (
                 player_movement_system,
-                // player_aim_system,
+                player_aim_system,
                 cursor_to_world,
                 fire_system,
                 decay_system,
@@ -192,23 +195,26 @@ fn player_movement_system(
     transform.translation = transform.translation.min(extents).max(-extents);
 }
 
+
 fn player_aim_system(
-    ms_pos: Res<Input<KeyCode>>,
+    ms_pos: Res<MouseWorldPos>,
     q_windows: Query<&Window>,
-    mut query: Query<(&Player, &mut Transform, &Move)>,
-    time: Res<Time>,
+    mut query: Query<&mut Transform, With<Player>>,
 ) {
-    if let Some(position) = q_windows.single().cursor_position() {
-        println!("Cursor is inside the primary window, at {:?}", position);
-    } else {
-        println!("Cursor is not in the game window.");
+    if let Some(_) = q_windows.single().cursor_position() {
+        let mut transf = query.get_single_mut().unwrap();
+        let displacement = ms_pos.0 - transf.translation.truncate();
+        if let Some(dir) = displacement.try_normalize() {
+            transf.rotation = Quat::from_rotation_arc_2d(Vec2::Y, dir);
+        }
     }
 }
+
 
 fn cursor_to_world(
     q_windows: Query<&Window>,
     query: Query<(&Camera, &GlobalTransform)>,
-    mut ms_pos: EventReader<CursorMoved>,
+    ms_pos: EventReader<CursorMoved>,
     mut ms_world_pos: ResMut<MouseWorldPos>,
 ) {
     let window = q_windows.single();
@@ -218,11 +224,8 @@ fn cursor_to_world(
             let world_pos = camera.viewport_to_world_2d(global_transf, cursor);
             if let Some(pos) = world_pos {
                 ms_world_pos.0 = pos;
-                dbg!(&world_pos);
+                // dbg!(&world_pos);
             }
-            
-            // clear all events so that function only runs once per frame
-            // ms_pos.clear();
         }
     }
 }
