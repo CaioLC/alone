@@ -36,7 +36,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 fn enemy_counter(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let font = asset_server.load("fonts/FiraSans-Bold.ttf");
+    let font = asset_server.load("fonts/Kenney Mini.ttf");
     commands.spawn((
         TextBundle::from_sections([
             TextSection::new(
@@ -67,7 +67,7 @@ fn enemy_counter(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 fn player_health(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let font = asset_server.load("fonts/FiraSans-Bold.ttf");
+    let font = asset_server.load("fonts/Kenney Mini.ttf");
     commands.spawn((
         TextBundle::from_sections([
             TextSection::new(
