@@ -3,7 +3,7 @@ use bevy::{
     prelude::*,
 };
 
-use crate::components::{Enemy, Health, Player};
+use crate::{components::{Enemy, Health, Player}, states::AppState};
 
 #[derive(Component)]
 struct TextChanges;
@@ -153,7 +153,7 @@ impl Plugin for DiagnosticsPlugin {
                     change_text_system,
                     change_enemy_counter,
                     player_health_update,
-                ),
+                ).run_if(in_state(AppState::InGame)),
             );
     }
 }

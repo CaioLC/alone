@@ -21,7 +21,7 @@ impl Plugin for MyMaterialsPlugin {
 fn store_materials(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
     let bullet_handle = materials.add(Color::ORANGE.into());
     info!("bullet_handle: {:?}", bullet_handle);
-    
+
     let enemy_handle = materials.add(Color::RED.into());
     info!("enemy_handle: {:?}", enemy_handle);
 

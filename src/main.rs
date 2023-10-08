@@ -1,5 +1,6 @@
 use alone::materials::EnemyMaterial;
 use alone::meshes::EnemyMesh;
+use alone::states::{AppState, StatesPlugin};
 use alone::systems::collision;
 use bevy::input::common_conditions::input_toggle_active;
 use bevy::{asset::ChangeWatcher, prelude::*, sprite::MaterialMesh2dBundle};
@@ -36,11 +37,13 @@ fn main() {
             // 3rd party
             WorldInspectorPlugin::default().run_if(input_toggle_active(true, KeyCode::Escape)),
             // Mine
+            StatesPlugin,
             DiagnosticsPlugin,
             MyMaterialsPlugin,
             MyMeshesPlugin,
         ))
         .add_systems(Startup, setup)
+        .add_systems(OnEnter(AppState::InGame), setup_game)
         .add_systems(
             Update,
             (
@@ -54,17 +57,20 @@ fn main() {
                 fire_system,
                 decay_system,
                 enemy_system,
-            ),
+            ).run_if(in_state(AppState::InGame)),
         )
         .run()
 }
 
-fn setup(
+fn setup(mut commands: Commands) {
+    commands.spawn(Camera2dBundle::default());
+}
+
+fn setup_game(
     mut commands: Commands,
     meshes: ResMut<Assets<Mesh>>,
     materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    commands.spawn(Camera2dBundle::default());
     spawn_player(commands, meshes, materials);
 }
 
