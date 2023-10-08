@@ -1,7 +1,8 @@
 use alone::materials::EnemyMaterial;
 use alone::meshes::EnemyMesh;
+use alone::systems::collision;
 use bevy::input::common_conditions::input_toggle_active;
-use bevy::{asset::ChangeWatcher, math::Vec3Swizzles, prelude::*, sprite::MaterialMesh2dBundle};
+use bevy::{asset::ChangeWatcher, prelude::*, sprite::MaterialMesh2dBundle};
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use rand::Rng;
 use std::time::Duration;
@@ -47,6 +48,8 @@ fn main() {
                 movement::player_aim_system,
                 movement::move_system,
                 movement::rotate_to_player_system,
+                collision::bullet_system,
+                collision::player_system,
                 cursor_to_world,
                 fire_system,
                 decay_system,
@@ -79,11 +82,13 @@ fn spawn_player(
                 ..default()
             },
             Player,
-            Move { speed: 100.0 },
-            Rotate {
-                speed: f32::to_radians(360.0),
+            Health(5.0),
+            HitCooldown {
+                time_full: 2.0,
+                time_remains: 0.0,
             },
-            Sensor { radius: 5.0 }
+            Move { speed: 100.0 },
+            Sensor { radius: 5.0 },
         ))
         .id();
     let p_child = commands
@@ -103,10 +108,11 @@ fn fire_system(
     mut commands: Commands,
     player: Query<&Transform, With<Player>>,
     keyboard_input: Res<Input<KeyCode>>,
+    ms_input: Res<Input<MouseButton>>,
     bullet_mat: Res<BulletMaterial>,
     bullet_mesh: Res<BulletMesh>,
 ) {
-    if keyboard_input.just_pressed(KeyCode::Space) {
+    if keyboard_input.just_pressed(KeyCode::Space) | ms_input.just_pressed(MouseButton::Left) {
         let p = player.get_single().unwrap();
         let mut b_transf = p.clone();
         b_transf.translation += b_transf.up() * 2.0;
@@ -119,7 +125,7 @@ fn fire_system(
                 max_seconds: 0.5,
                 elapsed_time: 0.0,
             },
-            Sensor { radius: 3.0 }
+            Sensor { radius: 3.0 },
         ));
     }
 }
@@ -174,15 +180,15 @@ fn enemy_system(
                 prefabs::enemy_bundle(&enemy_mesh, &enemy_mat, t),
                 Enemy,
                 Move { speed: 50.0 },
-                Rotate { speed: 180.0 },
-                Sensor { radius: 7.0 }
+                RotateToPlayer { speed: 180.0 },
+                Sensor { radius: 7.0 },
             ));
         }
     }
     round.countdown -= time.delta_seconds();
     if round.countdown <= 0.0 {
-        dbg!("NEW ROUND!");
         round.countdown = round.length;
+        round.enemies = (round.enemies as f32 * 1.2).ceil() as u32;
     }
 }
 

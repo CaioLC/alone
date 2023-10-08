@@ -3,8 +3,16 @@ use bevy::{
     prelude::*,
 };
 
+use crate::components::{Enemy, Health, Player};
+
 #[derive(Component)]
 struct TextChanges;
+
+#[derive(Component)]
+struct EnemyCounter;
+
+#[derive(Component)]
+struct PlayerHealth;
 
 fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
@@ -24,6 +32,68 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         }),
         TextChanges,
+    ));
+}
+
+fn enemy_counter(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let font = asset_server.load("fonts/FiraSans-Bold.ttf");
+    commands.spawn((
+        TextBundle::from_sections([
+            TextSection::new(
+                "Enemies: ",
+                TextStyle {
+                    font: font.clone(),
+                    font_size: 20.0,
+                    color: Color::WHITE,
+                },
+            ),
+            TextSection::new(
+                "",
+                TextStyle {
+                    font: font.clone(),
+                    font_size: 20.0,
+                    color: Color::WHITE,
+                },
+            ),
+        ])
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            top: Val::Px(5.0),
+            right: Val::Px(15.0),
+            ..default()
+        }),
+        EnemyCounter,
+    ));
+}
+
+fn player_health(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let font = asset_server.load("fonts/FiraSans-Bold.ttf");
+    commands.spawn((
+        TextBundle::from_sections([
+            TextSection::new(
+                "Health: ",
+                TextStyle {
+                    font: font.clone(),
+                    font_size: 20.0,
+                    color: Color::WHITE,
+                },
+            ),
+            TextSection::new(
+                "",
+                TextStyle {
+                    font: font.clone(),
+                    font_size: 20.0,
+                    color: Color::WHITE,
+                },
+            ),
+        ])
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            top: Val::Px(35.0),
+            right: Val::Px(15.0),
+            ..default()
+        }),
+        PlayerHealth,
     ));
 }
 
@@ -50,12 +120,40 @@ fn change_text_system(
         text.sections[0].value = format!("FPS: {fps:.1} | {frame_time:.3} ms/frame",);
     }
 }
+
+fn change_enemy_counter(
+    mut query: Query<&mut Text, With<EnemyCounter>>,
+    q_enemies: Query<Entity, With<Enemy>>,
+) {
+    for mut text in &mut query {
+        let total_enemies = q_enemies.iter().count();
+        text.sections[1].value = format!("{total_enemies}",);
+    }
+}
+
+fn player_health_update(
+    mut query: Query<&mut Text, With<PlayerHealth>>,
+    p_health: Query<&Health, With<Player>>,
+) {
+    for mut text in &mut query {
+        let health = p_health.single().0;
+        text.sections[1].value = format!("{health}",);
+    }
+}
+
 pub struct DiagnosticsPlugin;
 
 impl Plugin for DiagnosticsPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(FrameTimeDiagnosticsPlugin)
-            .add_systems(Startup, infotext_system)
-            .add_systems(Update, change_text_system);
+            .add_systems(Startup, (infotext_system, enemy_counter, player_health))
+            .add_systems(
+                Update,
+                (
+                    change_text_system,
+                    change_enemy_counter,
+                    player_health_update,
+                ),
+            );
     }
 }

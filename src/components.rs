@@ -12,6 +12,12 @@ pub struct Player;
 pub struct Enemy;
 
 #[derive(Component)]
+pub struct HitCooldown {
+    pub time_full: f32,
+    pub time_remains: f32,
+}
+
+#[derive(Component)]
 pub struct Health(pub f32);
 
 #[derive(Component)]
@@ -20,7 +26,7 @@ pub struct Move {
 }
 
 #[derive(Component)]
-pub struct Rotate {
+pub struct RotateToPlayer {
     pub speed: f32,
 }
 

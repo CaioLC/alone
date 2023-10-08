@@ -9,9 +9,9 @@ pub fn move_system(mut query: Query<(&Move, &mut Transform), Without<Player>>, t
 }
 
 pub fn rotate_to_player_system(
-    mut query: Query<(&Rotate, &mut Transform), Without<Player>>,
+    mut query: Query<(&RotateToPlayer, &mut Transform), Without<Player>>,
     player_query: Query<&Transform, With<Player>>,
-    time: Res<Time>
+    time: Res<Time>,
 ) {
     let player_transform = player_query.single();
     // get the player translation in 2D
@@ -66,39 +66,39 @@ pub fn player_movement_system(
     mut query: Query<(&Player, &mut Transform, &Move)>,
     time: Res<Time>,
 ) {
-    let (_, mut transform, mv) = query.single_mut();
+    if let Ok((_, mut transform, mv)) = query.get_single_mut() {
+        let mut movement_vector = Vec2::ZERO;
 
-    let mut movement_vector = Vec2::ZERO;
+        if keyboard_input.pressed(KeyCode::A) {
+            movement_vector += Vec2::NEG_X;
+        }
 
-    if keyboard_input.pressed(KeyCode::A) {
-        movement_vector += Vec2::NEG_X;
+        if keyboard_input.pressed(KeyCode::D) {
+            movement_vector += Vec2::X;
+        }
+
+        if keyboard_input.pressed(KeyCode::S) {
+            movement_vector += Vec2::NEG_Y;
+        }
+
+        if keyboard_input.pressed(KeyCode::W) {
+            movement_vector += Vec2::Y;
+        }
+
+        // update the ship rotation around the Z axis (perpendicular to the 2D plane of the screen)
+        // transform.rotate_z(rotation_factor * rot.speed * time.delta_seconds());
+
+        // get the distance the ship will move based on direction, the ship's movement speed and delta time
+        let mov = movement_vector.normalize_or_zero() * mv.speed * time.delta_seconds();
+        // create the change in translation using the new movement direction and distance
+        // let translation_delta = movement_direction * movement_distance;
+        // update the ship translation with our new translation delta
+        transform.translation += Vec3::new(mov.x, mov.y, 0.0);
+
+        // bound the ship within the invisible level bounds
+        let extents = Vec3::from((BOUNDS / 2.0, 0.0));
+        transform.translation = transform.translation.min(extents).max(-extents);
     }
-
-    if keyboard_input.pressed(KeyCode::D) {
-        movement_vector += Vec2::X;
-    }
-
-    if keyboard_input.pressed(KeyCode::S) {
-        movement_vector += Vec2::NEG_Y;
-    }
-
-    if keyboard_input.pressed(KeyCode::W) {
-        movement_vector += Vec2::Y;
-    }
-
-    // update the ship rotation around the Z axis (perpendicular to the 2D plane of the screen)
-    // transform.rotate_z(rotation_factor * rot.speed * time.delta_seconds());
-
-    // get the distance the ship will move based on direction, the ship's movement speed and delta time
-    let mov = movement_vector.normalize_or_zero() * mv.speed * time.delta_seconds();
-    // create the change in translation using the new movement direction and distance
-    // let translation_delta = movement_direction * movement_distance;
-    // update the ship translation with our new translation delta
-    transform.translation += Vec3::new(mov.x, mov.y, 0.0);
-
-    // bound the ship within the invisible level bounds
-    let extents = Vec3::from((BOUNDS / 2.0, 0.0));
-    transform.translation = transform.translation.min(extents).max(-extents);
 }
 
 pub fn player_aim_system(
