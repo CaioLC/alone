@@ -103,7 +103,7 @@ fn spawn_player(
                 time_remains: 0.0,
             },
             Move { speed: 100.0 },
-            Sensor { radius: 5.0 },
+            Sensor { radius: 3.0 },
         ))
         .id();
     let p_child = commands

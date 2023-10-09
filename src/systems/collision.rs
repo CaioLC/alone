@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::components::{Bullet, Enemy, Health, HitCooldown, Move, Player, Sensor};
+use crate::components::{Bullet, Enemy, Health, HitCooldown, Player, Sensor};
 
 pub fn bullet_enemy(
     mut commands: Commands,
@@ -23,12 +23,11 @@ pub fn bullet_enemy(
 }
 
 pub fn player_enemy(
-    mut commands: Commands,
     mut player: Query<(Entity, &Transform, &Sensor, &mut Health, &mut HitCooldown), With<Player>>,
     q_enemies: Query<(&Transform, &Sensor), With<Enemy>>,
     time: Res<Time>,
 ) {
-    if let Ok((p_e, b_t, b_s, mut p_h, mut p_cd)) = player.get_single_mut() {
+    if let Ok((_p_e, b_t, b_s, mut p_h, mut p_cd)) = player.get_single_mut() {
         if p_cd.time_remains <= 0.0 {
             for (e_t, e_s) in &q_enemies {
                 if e_t.translation.distance(b_t.translation) < (b_s.radius + e_s.radius) {
