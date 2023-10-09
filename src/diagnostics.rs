@@ -3,7 +3,10 @@ use bevy::{
     prelude::*,
 };
 
-use crate::{components::{Enemy, Health, Player}, states::AppState};
+use crate::{
+    components::{Enemy, Health, Player},
+    states::AppState,
+};
 
 #[derive(Component)]
 struct TextChanges;
@@ -135,9 +138,11 @@ fn player_health_update(
     mut query: Query<&mut Text, With<PlayerHealth>>,
     p_health: Query<&Health, With<Player>>,
 ) {
-    for mut text in &mut query {
-        let health = p_health.single().0;
-        text.sections[1].value = format!("{health}",);
+    if let Ok(health) = p_health.get_single() {
+        for mut text in &mut query {
+            let v = health.0;
+            text.sections[1].value = format!("{v}",);
+        }
     }
 }
 
@@ -153,7 +158,8 @@ impl Plugin for DiagnosticsPlugin {
                     change_text_system,
                     change_enemy_counter,
                     player_health_update,
-                ).run_if(in_state(AppState::InGame)),
+                )
+                    .run_if(in_state(AppState::InGame)),
             );
     }
 }

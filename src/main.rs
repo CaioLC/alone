@@ -1,7 +1,6 @@
 use alone::materials::EnemyMaterial;
 use alone::meshes::EnemyMesh;
 use alone::states::{AppState, StatesPlugin};
-use alone::systems::collision;
 use bevy::input::common_conditions::input_toggle_active;
 use bevy::{asset::ChangeWatcher, prelude::*, sprite::MaterialMesh2dBundle};
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
@@ -12,22 +11,18 @@ use std::time::Duration;
 use alone::{
     components::*,
     diagnostics::DiagnosticsPlugin,
-    materials::{BulletMaterial, MyMaterialsPlugin},
-    meshes::{BulletMesh, MyMeshesPlugin},
+    materials::MyMaterialsPlugin,
+    meshes::MyMeshesPlugin,
     prefabs,
     resources::*,
-    systems::movement,
+    systems::{collision, movement, player},
+    ui::UIPlugin,
 };
 
 fn main() {
     App::new()
         .insert_resource(ClearColor(Color::rgb(0.1, 0.1, 0.1)))
         .insert_resource(MouseWorldPos::default())
-        .insert_resource(RoundParams {
-            length: 10.0,
-            countdown: 10.0,
-            enemies: 10,
-        })
         .add_plugins((
             // Bevy
             DefaultPlugins.set(AssetPlugin {
@@ -41,24 +36,28 @@ fn main() {
             DiagnosticsPlugin,
             MyMaterialsPlugin,
             MyMeshesPlugin,
+            UIPlugin,
         ))
         .add_systems(Startup, setup)
         .add_systems(OnEnter(AppState::InGame), setup_game)
         .add_systems(
             Update,
             (
-                movement::player_movement_system,
-                movement::player_aim_system,
-                movement::move_system,
-                movement::rotate_to_player_system,
-                collision::bullet_system,
-                collision::player_system,
                 cursor_to_world,
-                fire_system,
                 decay_system,
                 enemy_system,
-            ).run_if(in_state(AppState::InGame)),
+                end_game,
+                movement::rotate_to_player_system,
+                collision::bullet_enemy,
+                collision::player_enemy,
+                player::movement_system,
+                player::aim_system,
+                player::fire_system,
+                player::died_system,
+            )
+                .run_if(in_state(AppState::InGame)),
         )
+        .add_systems(Update, movement::move_system)
         .run()
 }
 
@@ -70,12 +69,22 @@ fn setup_game(
     mut commands: Commands,
     meshes: ResMut<Assets<Mesh>>,
     materials: ResMut<Assets<ColorMaterial>>,
+    query: Query<Entity, With<Enemy>>,
 ) {
-    spawn_player(commands, meshes, materials);
+    for e in &query {
+        commands.entity(e).despawn_recursive();
+    }
+    spawn_player(&mut commands, meshes, materials);
+    commands.insert_resource(RoundParams {
+        round: 1,
+        length: 10.0,
+        countdown: 10.0,
+        enemies: 10,
+    });
 }
 
 fn spawn_player(
-    mut commands: Commands,
+    commands: &mut Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
@@ -110,38 +119,21 @@ fn spawn_player(
     commands.entity(p).add_child(p_child);
 }
 
-fn fire_system(
-    mut commands: Commands,
-    player: Query<&Transform, With<Player>>,
-    keyboard_input: Res<Input<KeyCode>>,
-    ms_input: Res<Input<MouseButton>>,
-    bullet_mat: Res<BulletMaterial>,
-    bullet_mesh: Res<BulletMesh>,
-) {
-    if keyboard_input.just_pressed(KeyCode::Space) | ms_input.just_pressed(MouseButton::Left) {
-        let p = player.get_single().unwrap();
-        let mut b_transf = p.clone();
-        b_transf.translation += b_transf.up() * 2.0;
-
-        commands.spawn((
-            prefabs::bullet_bundle(&bullet_mesh, &bullet_mat, b_transf),
-            Bullet,
-            Move { speed: 1000.0 },
-            Decay {
-                max_seconds: 0.5,
-                elapsed_time: 0.0,
-            },
-            Sensor { radius: 3.0 },
-        ));
-    }
-}
-
 fn decay_system(mut commands: Commands, mut query: Query<(Entity, &mut Decay)>, time: Res<Time>) {
     for (e, mut d) in &mut query {
         match d.elapsed_time > d.max_seconds {
             true => commands.entity(e).despawn_recursive(),
             false => d.elapsed_time += time.delta_seconds(),
         }
+    }
+}
+
+fn end_game(
+    mut next_state: ResMut<NextState<AppState>>,
+    p: Query<&Player>
+) {
+    if p.get_single().is_err() {
+        next_state.set(AppState::GameOver)
     }
 }
 
@@ -164,13 +156,6 @@ fn cursor_to_world(
     }
 }
 
-#[derive(Resource)]
-struct RoundParams {
-    length: f32,
-    countdown: f32,
-    enemies: u32,
-}
-
 fn enemy_system(
     mut commands: Commands,
     mut round: ResMut<RoundParams>,
@@ -181,7 +166,8 @@ fn enemy_system(
     if round.length == round.countdown {
         for _ in 0..round.enemies {
             let random_pos = random_2d((-600.0, 600.0), (-300.0, 300.0));
-            let t = Transform::from_xyz(random_pos.x, random_pos.y, 0.0);
+            let mut t = Transform::from_xyz(random_pos.x, random_pos.y, 0.0);
+            t.rotate_z(rand::random::<f32>() * 360.0);
             commands.spawn((
                 prefabs::enemy_bundle(&enemy_mesh, &enemy_mat, t),
                 Enemy,

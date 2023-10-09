@@ -6,6 +6,9 @@ pub struct Sensor {
 }
 
 #[derive(Component)]
+pub struct Dead;
+
+#[derive(Component)]
 pub struct Player;
 
 #[derive(Component)]
